@@ -13,7 +13,7 @@ import { Button } from './button';
 import Link from 'next/link';
 
 export default function SignUpForm() {
-  const initialState = { message: null, errors: {} };
+  const initialState = { message: '', errors: {} };
   const [state, formAction, isPending] = useActionState(
     signUp,
     initialState,
