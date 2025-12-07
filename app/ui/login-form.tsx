@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { ArrowRightIcon } from '@heroicons/react/20/solid';
 import { Button } from './button';
+import Link from 'next/link';
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
@@ -76,6 +77,16 @@ export default function LoginForm() {
               <p className="text-sm text-red-500">{errorMessage}</p>
             </>
           )}
+        </div>
+
+        {/* Link to Sign Up */}
+        <div className="mt-4 text-center text-sm">
+          <p className="text-gray-600">
+            Don't have an account?{' '}
+            <Link href="/signup" className="text-blue-500 hover:text-blue-600 underline">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
     </form>

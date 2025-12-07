@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import bcrypt from 'bcrypt';
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 const FormSchema = z.object({
@@ -28,6 +29,16 @@ export type State = {
     customerId?: string[];
     amount?: string[];
     status?: string[];
+  };
+  message?: string | null;
+};
+
+export type SignUpState = {
+  errors?: {
+    name?: string[];
+    email?: string[];
+    password?: string[];
+    confirmPassword?: string[];
   };
   message?: string | null;
 };
@@ -134,4 +145,70 @@ export async function authenticate(
     }
     throw error;
   }
+}
+
+// Sign up
+const SignUpSchema = z.object({
+  name: z.string().min(1, { message: 'Name is required.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  confirmPassword: z.string().min(1, { message: 'Please confirm your password.' }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match.",
+  path: ["confirmPassword"],
+});
+
+export async function signUp(prevState: SignUpState, formData: FormData) {
+  // Validate form using Zod
+  const validatedFields = SignUpSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email'),
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+  });
+
+  // If form validation fails, return errors early
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing or invalid fields. Failed to create account.',
+    };
+  }
+
+  const { name, email, password } = validatedFields.data;
+
+  // Check if user already exists
+  try {
+    const existingUser = await sql`
+      SELECT id FROM users WHERE email = ${email}
+    `;
+
+    if (existingUser.length > 0) {
+      return {
+        message: 'Email already registered. Please use a different email or login.',
+      };
+    }
+  } catch (error) {
+    return {
+      message: 'Database Error: Failed to check existing user.',
+    };
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // Insert new user into database
+  try {
+    await sql`
+      INSERT INTO users (name, email, password)
+      VALUES (${name}, ${email}, ${hashedPassword})
+    `;
+  } catch (error) {
+    return {
+      message: 'Database Error: Failed to create account.',
+    };
+  }
+
+  // Redirect to login page after successful registration
+  redirect('/login');
 }
